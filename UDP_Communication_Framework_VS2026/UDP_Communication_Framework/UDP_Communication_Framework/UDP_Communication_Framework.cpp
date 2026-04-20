@@ -93,7 +93,7 @@ int main()
 		return 1;
 	}
 
-	char* res = "res.txt";
+	char* res = "test.txt";
 	FILE* fp = fopen(res, "wb");
 	if (!fp)
 	{
@@ -172,7 +172,11 @@ int main()
 	posExpected += dataReceived.packet_len;
 
 	printf("total size is %lu\n", posExpected);
+
 	char* resInput = (char*)calloc(posExpected, 1);
+	if (!resInput)
+		printf("error in allocation!\n");
+
 	u8 resData[16] = { 0 };
 	
 	fclose(fp);
@@ -182,6 +186,7 @@ int main()
 		printf("error!\n");
 
 	u32 ret = fread(resInput, 1, posExpected, fpCheckMd5);
+	
 	if (ret != posExpected)
 		printf("error in reading file! %lu, %lu\n", ret, posExpected);
 
@@ -192,10 +197,9 @@ int main()
 	
 	closesocket(socketS);
 	free(resInput);
-	//free(resData);
+	
 	fclose(fpCheckMd5);
 
-	
 	getchar(); //wait for press Enter
 	return 0;
 
