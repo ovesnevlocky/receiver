@@ -94,7 +94,7 @@ int main()
 		return 1;
 	}
 
-	char* res = "monk.jpeg";
+	char* res = "vid.mp4";
 	FILE* fp = fopen(res, "wb");
 	if (!fp)
 	{
@@ -110,8 +110,12 @@ int main()
 	
 	u32 crc32;
 	
-	while ((receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen)) > 0)
+	//while ((receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen)) > 0)
+	while(1)
 	{
+		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
+		if (receivedPacketLength <= 0)
+			break;
 
 		if (receivedPacketLength == SOCKET_ERROR)
 		{
@@ -119,6 +123,7 @@ int main()
 			getchar();
 			return 1;
 		}
+		
 		if (dataReceived.packet_type == STOP)
 		{
 			printf("end the communication\n");
@@ -130,7 +135,7 @@ int main()
 		}
 
 
-		if (posExpected != dataReceived.pos)
+		if (dataReceived.pos != posExpected)
 		{
 			
 			printf("expected: %i, got %i\n", posExpected, dataReceived.pos);
@@ -164,7 +169,6 @@ int main()
 			//set ack 
 			dataToSend.pos = posExpected;
 			dataToSend.packet_type = ACK;
-		
 			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
 
 		}
@@ -180,12 +184,12 @@ int main()
 		printf("error in allocation!\n");
 
 	u8 resData[16] = { 0 };
-	
+	//close to read from this file
 	fclose(fp);
 
 	FILE* fpCheckMd5 = fopen(res, "rb");
 	if (!fpCheckMd5)
-		printf("error!\n");
+		printf("error  in opening the res file before getting md5!\n");
 
 	u32 ret = fread(resInput, sizeof(u8), posExpected, fpCheckMd5);
 	
@@ -194,6 +198,7 @@ int main()
 
 	resInput[ret] = '\0';
 
+	printf("size is: %lu", res);
 	md5String(resInput, resData);
 	print_hash(resData);
 
