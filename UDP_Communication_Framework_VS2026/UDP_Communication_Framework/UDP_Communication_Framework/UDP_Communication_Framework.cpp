@@ -14,7 +14,7 @@
 #define TARGET_IP	"127.0.0.1"
 //#define TARGET_IP "10.1.6.72"
 
-#define BUFFERS_LEN 10
+#define BUFFERS_LEN 1024
 
 
 enum
@@ -32,7 +32,8 @@ typedef uint32_t u32;
 
 struct PacketStruct
 {
-	u32 packet_type;
+	//u32 packet_type;
+	u8  packet_type;
 	u32 packet_len;
 	u32 crc32;
 	//buff for data
@@ -93,7 +94,7 @@ int main()
 		return 1;
 	}
 
-	char* res = "test.txt";
+	char* res = "monk.jpeg";
 	FILE* fp = fopen(res, "wb");
 	if (!fp)
 	{
@@ -145,15 +146,16 @@ int main()
 
 			//specify the position in the file to keep the communication safe 
 			fseek(fp, dataReceived.pos, SEEK_SET);
-			int check = fwrite(dataReceived.payload, sizeof(char), dataReceived.packet_len, fp);
+			int check = fwrite(dataReceived.payload, sizeof(u8), dataReceived.packet_len, fp);
 			if (check != dataReceived.packet_len)
 			{
+				printf("got :%i  expected:%lu\n", check, dataReceived.packet_len);
 				printf("error in writing to a file\n");
 				return 1;
 			}
 
 			crc32 = CRC_CalculateCRC32(dataReceived.payload, dataReceived.packet_len);
-			printf("0x%X : 0x%X\n", dataReceived.crc32, crc32);
+			//printf("0x%X : 0x%X\n", dataReceived.crc32, crc32);
 			if (crc32 != dataReceived.crc32)
 			{
 				printf("error! 0x%X : 0x%X\n", dataReceived.crc32, crc32);
@@ -173,7 +175,7 @@ int main()
 
 	printf("total size is %lu\n", posExpected);
 
-	char* resInput = (char*)calloc(posExpected, 1);
+	char* resInput = (char*)calloc(posExpected + 1, 1);
 	if (!resInput)
 		printf("error in allocation!\n");
 
@@ -185,10 +187,12 @@ int main()
 	if (!fpCheckMd5)
 		printf("error!\n");
 
-	u32 ret = fread(resInput, 1, posExpected, fpCheckMd5);
+	u32 ret = fread(resInput, sizeof(u8), posExpected, fpCheckMd5);
 	
 	if (ret != posExpected)
 		printf("error in reading file! %lu, %lu\n", ret, posExpected);
+
+	resInput[ret] = '\0';
 
 	md5String(resInput, resData);
 	print_hash(resData);
