@@ -22,7 +22,7 @@ enum
 	SYNC,
 	DATA,
 	ACK,
-	LACK,
+	NAK,
 	MASK,
 	STOP
 };
@@ -38,7 +38,8 @@ struct PacketStruct
 	u32 crc32;
 	//buff for data
 	u32 pos;
-	u32 md5;
+	//u32 md5;
+	u8 md5[16];
 
 	u8 payload[BUFFERS_LEN];
 
@@ -79,7 +80,7 @@ int main()
 
 	struct sockaddr_in local;
 	struct sockaddr_in addrDst;
-	
+
 	struct PacketStruct dataReceived = { 0 };
 	struct PacketStruct dataToSend = { 0 };
 	int addrDstlen = sizeof(addrDst);
@@ -94,7 +95,7 @@ int main()
 		return 1;
 	}
 
-	char* res = "vid.mp4";
+	char* res = "res.jpeg";
 	FILE* fp = fopen(res, "wb");
 	if (!fp)
 	{
@@ -103,15 +104,15 @@ int main()
 	}
 
 	printf("Waiting for datagram ...\n");
-	
+
 	int receivedPacketLength = 0;
 
 	u32 posExpected = 0;
-	
+
 	u32 crc32;
-	
+
 	//while ((receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen)) > 0)
-	while(1)
+	while (1)
 	{
 		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
 		if (receivedPacketLength <= 0)
@@ -123,33 +124,37 @@ int main()
 			getchar();
 			return 1;
 		}
-		
+
+		if (dataReceived.packet_type == SYNC)
+		{
+			printf("start the communication\n");
+			dataToSend.packet_type = SYNC;
+			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
+		}
+
+
 		if (dataReceived.packet_type == STOP)
 		{
 			printf("end the communication\n");
 			break;
 		}
-		if (dataReceived.packet_type == SYNC)
-		{
-			printf("start the communication\n");
-		}
 
-
-		if (dataReceived.pos != posExpected)
-		{
-			
-			printf("expected: %i, got %i\n", posExpected, dataReceived.pos);
-			memset(&dataToSend, 0, sizeof(dataToSend));
-			dataToSend.pos = posExpected;
-			dataToSend.packet_type = ACK;
-			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
-		}
-
-	
 		if (dataReceived.packet_type == DATA)
 		{
 
 			//specify the position in the file to keep the communication safe 
+			
+			crc32 = CRC_CalculateCRC32(dataReceived.payload, dataReceived.packet_len);
+			
+			if (crc32 != dataReceived.crc32 || dataReceived.pos != posExpected)
+			{
+				printf("error! 0x%X : 0x%X\n", dataReceived.crc32, crc32);
+				dataToSend.packet_type = NAK;
+				dataToSend.pos = posExpected;
+				sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
+				continue;
+			}
+
 			fseek(fp, dataReceived.pos, SEEK_SET);
 			int check = fwrite(dataReceived.payload, sizeof(u8), dataReceived.packet_len, fp);
 			if (check != dataReceived.packet_len)
@@ -159,16 +164,11 @@ int main()
 				return 1;
 			}
 
-			crc32 = CRC_CalculateCRC32(dataReceived.payload, dataReceived.packet_len);
-			//printf("0x%X : 0x%X\n", dataReceived.crc32, crc32);
-			if (crc32 != dataReceived.crc32)
-			{
-				printf("error! 0x%X : 0x%X\n", dataReceived.crc32, crc32);
-			}
 			posExpected += dataReceived.packet_len;
-			//set ack 
+			//set ack and  set posExpected to specify the next data//
 			dataToSend.pos = posExpected;
 			dataToSend.packet_type = ACK;
+			//
 			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
 
 		}
@@ -192,21 +192,28 @@ int main()
 		printf("error  in opening the res file before getting md5!\n");
 
 	u32 ret = fread(resInput, sizeof(u8), posExpected, fpCheckMd5);
-	
+
 	if (ret != posExpected)
 		printf("error in reading file! %lu, %lu\n", ret, posExpected);
 
 	resInput[ret] = '\0';
+	u8 md5[16] = { 0 };
 
-	printf("size is: %lu", res);
-	md5String(resInput, resData);
-	print_hash(resData);
+	printf("size is: %lu\n", ret);
+	md5String(resInput, md5);
 
+	//print_hash(dataReceived.md5);
+	if (memcmp(md5, dataReceived.md5, 16) != 0)
+	{
+		printf("error in md5 !\n");
+		print_hash(dataReceived.md5);
+		print_hash(md5);
+	}
 	printf("result was saved to %s\n", res);
-	
+
 	closesocket(socketS);
 	free(resInput);
-	
+
 	fclose(fpCheckMd5);
 
 	getchar(); //wait for press Enter
