@@ -125,10 +125,9 @@ int main()
 		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
 		if (receivedPacketLength <= 0)
 			break;
-		count++;
+		
 
-		if (count == 4)
-			Sleep(3000);
+		
 		if (receivedPacketLength == SOCKET_ERROR)
 		{
 			printf("Socket error!\n");
@@ -141,8 +140,6 @@ int main()
 			printf("start the communication\n");
 			dataToSend.packet_type = SYNC;
 			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
-			//for testing//
-			//exit(1);
 		}
 
 
@@ -156,7 +153,6 @@ int main()
 		{
 
 			//specify the position in the file to keep the communication safe 
-			//Sleep(1000);
 			crc32 = CRC_CalculateCRC32(dataReceived.payload, dataReceived.packet_len);
 			
 			if (crc32 != dataReceived.crc32 || dataReceived.pos != posExpected)
