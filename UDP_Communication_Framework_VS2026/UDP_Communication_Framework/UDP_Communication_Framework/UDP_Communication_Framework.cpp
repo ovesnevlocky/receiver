@@ -10,12 +10,13 @@
 #include <stdlib.h>
 #include "md5.h"
 #include "crc32.h"
+#include <stdbool.h>
 
 #define TARGET_IP	"127.0.0.1"
 //#define TARGET_IP "10.1.6.72"
 
 #define BUFFERS_LEN 1024
-
+#define RECV_TIMEOUT_MS 3000
 
 enum
 {
@@ -72,6 +73,13 @@ void prepare(struct sockaddr_in* local, struct sockaddr_in* addrDst)
 
 }
 
+bool isTimeout()
+{
+	int err = WSAGetLastError();
+	return err == WSAETIMEDOUT;
+}
+
+
 int main()
 {
 	SOCKET socketS;
@@ -108,7 +116,7 @@ int main()
 	int receivedPacketLength = 0;
 
 	u32 posExpected = 0;
-
+	int count = 0;
 	u32 crc32;
 
 	//while ((receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen)) > 0)
@@ -117,7 +125,10 @@ int main()
 		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
 		if (receivedPacketLength <= 0)
 			break;
+		count++;
 
+		if (count == 4)
+			Sleep(3000);
 		if (receivedPacketLength == SOCKET_ERROR)
 		{
 			printf("Socket error!\n");
@@ -130,6 +141,8 @@ int main()
 			printf("start the communication\n");
 			dataToSend.packet_type = SYNC;
 			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
+			//for testing//
+			//exit(1);
 		}
 
 
@@ -143,7 +156,7 @@ int main()
 		{
 
 			//specify the position in the file to keep the communication safe 
-			
+			//Sleep(1000);
 			crc32 = CRC_CalculateCRC32(dataReceived.payload, dataReceived.packet_len);
 			
 			if (crc32 != dataReceived.crc32 || dataReceived.pos != posExpected)
@@ -209,6 +222,9 @@ int main()
 		print_hash(dataReceived.md5);
 		print_hash(md5);
 	}
+	else
+		printf("md5 corresponded\n");
+
 	printf("result was saved to %s\n", res);
 
 	closesocket(socketS);
