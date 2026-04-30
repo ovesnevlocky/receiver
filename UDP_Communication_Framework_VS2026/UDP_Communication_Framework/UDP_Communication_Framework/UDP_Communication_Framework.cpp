@@ -12,11 +12,8 @@
 #include "crc32.h"
 #include <stdbool.h>
 
-#define TARGET_IP	"127.0.0.1"
-//#define TARGET_IP "10.1.6.72"
-
 #define BUFFERS_LEN 1024
-#define RECV_TIMEOUT_MS 3000
+#define RECV_TIMEOUT_MS 4000
 
 enum
 {
@@ -46,12 +43,13 @@ struct PacketStruct
 
 }packet;
 
+#define TARGET_IP	"127.0.0.1"
 
 #define RECEIVER
-
 #ifdef RECEIVER
-#define TARGET_PORT 5222
 #define LOCAL_PORT 5111
+#define TARGET_PORT 5222
+
 #endif // RECEIVER
 
 
@@ -92,7 +90,7 @@ int main()
 	struct PacketStruct dataReceived = { 0 };
 	struct PacketStruct dataToSend = { 0 };
 	int addrDstlen = sizeof(addrDst);
-
+	int localLen = sizeof(local);
 
 	prepare(&local, &addrDst);
 	socketS = socket(AF_INET, SOCK_DGRAM, 0);
@@ -118,15 +116,17 @@ int main()
 	u32 posExpected = 0;
 	int count = 0;
 	u32 crc32;
+	int check = 0;
 
-	//while ((receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen)) > 0)
 	while (1)
 	{
-		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
+
+		printf("hello%i\n", count);
+		count++;
+		//receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
+		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&local, &localLen);
 		if (receivedPacketLength <= 0)
 			break;
-		
-
 		
 		if (receivedPacketLength == SOCKET_ERROR)
 		{
@@ -139,7 +139,10 @@ int main()
 		{
 			printf("start the communication\n");
 			dataToSend.packet_type = SYNC;
-			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
+			check = sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
+			if(check != SOCKET_ERROR)
+				printf("sync sent\n");
+			continue;
 		}
 
 
@@ -177,7 +180,7 @@ int main()
 			//set ack and  set posExpected to specify the next data//
 			dataToSend.pos = posExpected;
 			dataToSend.packet_type = ACK;
-			//
+			
 			sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
 
 		}
