@@ -12,7 +12,7 @@
 #include "crc32.h"
 #include <stdbool.h>
 
-#define BUFFERS_LEN 1024
+#define BUFFERS_LEN 4096
 #define RECV_TIMEOUT_MS 4000
 
 enum
@@ -120,10 +120,6 @@ int main()
 
 	while (1)
 	{
-
-		printf("hello%i\n", count);
-		count++;
-		//receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&addrDst, &addrDstlen);
 		receivedPacketLength = recvfrom(socketS, (char*)&dataReceived, sizeof(dataReceived), 0, (sockaddr*)&local, &localLen);
 		if (receivedPacketLength <= 0)
 			break;
@@ -145,7 +141,6 @@ int main()
 			continue;
 		}
 
-
 		if (dataReceived.packet_type == STOP)
 		{
 			printf("end the communication\n");
@@ -160,7 +155,11 @@ int main()
 			
 			if (crc32 != dataReceived.crc32 || dataReceived.pos != posExpected)
 			{
-				printf("error! 0x%X : 0x%X\n", dataReceived.crc32, crc32);
+				if(crc32 != dataReceived.crc32)
+					printf("error! got: 0x%X : expected:0x%X\n", dataReceived.crc32, crc32);
+				else
+					printf("error! got: %lu :expected:%lu\n", dataReceived.pos, posExpected);
+
 				dataToSend.packet_type = NAK;
 				dataToSend.pos = posExpected;
 				sendto(socketS, (char*)&dataToSend, sizeof(dataToSend), 0, (sockaddr*)&addrDst, sizeof(addrDst));
@@ -223,7 +222,7 @@ int main()
 	}
 	else
 		printf("md5 corresponded\n");
-
+	
 	printf("result was saved to %s\n", res);
 
 	closesocket(socketS);
